@@ -1,0 +1,25 @@
+# Models to convert and everything the converter generates
+# (VoxToRoblox creates Input\ and Output\ by itself when they are missing)
+Input/
+Output/
+Roblox/
+*.gltf
+*.glb
+*.bin
+
+# Logs
+log.txt
+kit_log.txt
+
+# Python cache (Blender creates it when the kit script loads the converter)
+__pycache__/
+*.pyc
+
+# Blender backups
+*.blend1
+*.blend2
+
+# Windows / macOS junk
+Thumbs.db
+desktop.ini
+.DS_Store
