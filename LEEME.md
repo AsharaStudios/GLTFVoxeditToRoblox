@@ -9,6 +9,13 @@ Una app simple para Windows que usa Blender.
 
 <p align="center"><a href="README.md">English</a> · <b>Español</b></p>
 
+## Cómo usarla (video)
+
+<p align="center">
+<a href="https://youtu.be/C37fPBK0E6I"><img src="https://img.youtube.com/vi/C37fPBK0E6I/hqdefault.jpg" width="480" alt="Ver el tutorial de VoxToRoblox en YouTube"></a><br>
+▶ <a href="https://youtu.be/C37fPBK0E6I">Ver el tutorial en YouTube</a>
+</p>
+
 ---
 
 ## Requisitos

@@ -9,6 +9,13 @@ A simple Windows app powered by Blender.
 
 <p align="center"><b>English</b> · <a href="LEEME.md">Español</a></p>
 
+## How to use it (video)
+
+<p align="center">
+<a href="https://youtu.be/C37fPBK0E6I"><img src="https://img.youtube.com/vi/C37fPBK0E6I/hqdefault.jpg" width="480" alt="Watch the VoxToRoblox tutorial on YouTube"></a><br>
+▶ <a href="https://youtu.be/C37fPBK0E6I">Watch the tutorial on YouTube</a>
+</p>
+
 ---
 
 ## Requirements
