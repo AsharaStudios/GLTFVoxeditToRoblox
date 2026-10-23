@@ -26,7 +26,7 @@ Una app simple para Windows que usa Blender.
 
 1. Pon los `.gltf` / `.glb` (con sus `.bin` y texturas, o en subcarpetas) dentro de `Input\`.
 2. Doble clic en **`Start VoxEdit to Roblox.exe`**: se abre una ventana con la lista de archivos de `Input\`.
-3. Elige las opciones si quieres (altura en studs, tamaño de textura, mapas PBR, saltar los ya convertidos, abrir Output al terminar).
+3. Elige las opciones si quieres (altura en studs, tamaño de textura, mapas PBR, píxeles nítidos, saltar los ya convertidos, abrir Output al terminar).
 4. Marca **Equipable** en los equipables de VoxEdit (casco, pecho, brazos, piernas, arma, escudo…): esos archivos se convierten con el [algoritmo de kit](#kits-cuerpo--equipo--armas). Los que tienen en el nombre *Helmet, Shield, Weapon, Legs, Arms* o *Chest* ya vienen marcados; puedes cambiarlo.
 5. Presiona **Convertir**. Cada archivo muestra una miniatura, su barra de progreso y su estado; la barra de abajo es el total.
    El resultado queda en `Output\<Nombre>\`. Si un archivo falla, **Ver log** muestra el detalle (`log.txt`).
@@ -102,7 +102,8 @@ Sale en `Output\<Kit>_Kit\`:
 ## Qué hace
 
 - Convierte las piezas sueltas de VoxEdit en una sola malla con esqueleto.
-- Junta todas las texturas en un atlas nítido (sin suavizado).
+- Junta todas las texturas en un atlas nítido (sin suavizado): cada textura de VoxEdit se recorta al área que realmente usan sus UV y los recortes idénticos se comparten, así el atlas es pequeño y cada vóxel recibe más píxeles. El atlas va en un lienzo potencia de 2 para que Roblox no lo reescale (ni lo desenfoque).
+- Opción **Píxeles nítidos** (`--palette`): corta cada cara en rectángulos de un solo color para que el pixel art se vea nítido a cualquier distancia (Roblox siempre suaviza las texturas de las mallas). Cuesta unas 4 veces más triángulos, por eso viene apagada.
 - Escala a 5.5 studs, pies en el origen, mirando al frente de Roblox. Reposo = la T-pose del modelo (detecta "T POSE", "T", "TPose"…).
 - Fusiona huesos que casi no se mueven (por defecto, si el error es menor a medio vóxel).
 - Reduce keyframes redundantes al exportar.
@@ -141,6 +142,7 @@ Desde consola el resultado queda en `Roblox\<Nombre>\` junto al glTF (o en `--ou
 | `--out CARPETA` | | Carpeta de salida distinta |
 | `--maps-only` | | Solo atlas + mapas PBR, con los **mismos UV** (no toca los FBX, el `.blend` ni las animaciones) |
 | `--no-pbr` | | No generar los mapas PBR |
+| `--palette` | | Rectángulos de color plano en vez de caras con textura: pixel art nítido, ~4x triángulos (avisa si pasa de los 20 000 por MeshPart de Roblox) |
 | `--emis-relative` | | Máscara emisiva con la intensidad de VoxEdit (por defecto: todo lo que brilla en blanco puro; el brillo se ajusta con `EmissiveStrength`) |
 | `--normal-strength` | `1.0` | Fuerza del relieve del normal map |
 | `--bevel` | `0.25` | Ancho del bisel entre vóxeles de distinto color (fracción del vóxel) |

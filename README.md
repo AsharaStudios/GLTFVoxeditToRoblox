@@ -26,7 +26,7 @@ A simple Windows app powered by Blender.
 
 1. Put your `.gltf` / `.glb` files (with their `.bin` and textures, or in subfolders) inside `Input\`.
 2. Double-click **`Start VoxEdit to Roblox.exe`**: a window opens with the list of files in `Input\`.
-3. Choose the options if you want (height in studs, texture size, PBR maps, skip already converted, open Output when done).
+3. Choose the options if you want (height in studs, texture size, PBR maps, sharp pixels, skip already converted, open Output when done).
 4. Tick **Equipable** for VoxEdit equipment (helmet, chest, arms, legs, weapon, shield…): those files are converted with the [kit algorithm](#kits-body--equipment--weapons). Files whose name contains *Helmet, Shield, Weapon, Legs, Arms* or *Chest* come ticked already; you can change it.
 5. Press **Convert**. Each file shows a preview, its own progress bar and status; the bar at the bottom is the total.
    Results go to `Output\<Name>\`. If a file fails, **Open log** shows the details (`log.txt`).
@@ -102,7 +102,8 @@ Output goes to `Output\<Kit>_Kit\`:
 ## What it does
 
 - Turns the loose VoxEdit pieces into a single mesh with a skeleton.
-- Packs all textures into one crisp atlas (no smoothing).
+- Packs all textures into one crisp atlas (no smoothing): each VoxEdit texture is cropped to the area its UVs really use and identical crops are shared, so the atlas is small and every voxel gets more pixels. The atlas sits on a power-of-2 canvas so Roblox does not rescale (and blur) it.
+- Optional **Sharp pixels** (`--palette`): cuts every face into flat-colour rectangles so the pixel art stays sharp at any distance (Roblox always smooths mesh textures). Costs about 4x more triangles, so it is off by default.
 - Scales to 5.5 studs, feet at the origin, facing Roblox's front. Rest pose = the model's T-pose (detects "T POSE", "T", "TPose"…).
 - Merges bones that barely move (by default, if the error is under half a voxel).
 - Removes redundant keyframes when exporting.
@@ -141,6 +142,7 @@ From the command line the results go to `Roblox\<Name>\` next to the glTF (or to
 | `--out FOLDER` | | A different output folder |
 | `--maps-only` | | Atlas + PBR maps only, with the **same UVs** (does not touch the FBX, `.blend` or animations) |
 | `--no-pbr` | | Do not generate the PBR maps |
+| `--palette` | | Flat-colour rectangles instead of textured faces: sharp pixel art, ~4x triangles (warns above Roblox's 20 000 per MeshPart) |
 | `--emis-relative` | | Emissive mask with VoxEdit's intensity (default: everything that glows in pure white; set the brightness with `EmissiveStrength`) |
 | `--normal-strength` | `1.0` | Normal map relief strength |
 | `--bevel` | `0.25` | Bevel width between voxels of different colour (fraction of a voxel) |

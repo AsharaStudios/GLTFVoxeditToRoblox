@@ -1,10 +1,10 @@
 # VoxToRoblox - converts animated VoxEdit glTF files into a rig + FBX animations for Roblox
 # Usage: blender -b --factory-startup --python voxedit_to_roblox.py -- INPUTS... [options]
-import bpy, bmesh, sys, os, re, math, argparse, time, traceback
+import bpy, bmesh, sys, os, re, math, argparse, time, traceback, hashlib
 import numpy as np
 from mathutils import Matrix, Vector
 
-VERSION = "1.4"
+VERSION = "1.8"
 I4 = np.eye(4)
 
 def log(*a):
@@ -48,6 +48,7 @@ def parse_args():
     ap.add_argument("--no-blend", action="store_true", help="do not save the .blend with the rig and every animation")
     # --- PBR maps (1.3)
     ap.add_argument("--no-pbr", action="store_true", help="do not generate normal / roughness / metalness / emissive")
+    ap.add_argument("--palette", "--paleta", dest="palette", action="store_true", help="cut every face into flat-colour rectangles: sharp in Roblox but ~4x triangles (default: off, performance first)")
     ap.add_argument("--emis-relative", action="store_true", help="emissive mask with VoxEdit's intensity (default: pure white)")
     ap.add_argument("--maps-only", action="store_true", help="atlas + PBR maps only (does not touch the FBX, .blend or animations)")
     ap.add_argument("--normal-strength", type=float, default=1.0, help="normal map strength (default 1.0)")
@@ -483,9 +484,133 @@ def process(path, args):
             faces.append(vi); loop_uv.append(uvs); poly_keys.append(k)
         off += len(me.vertices)
 
+    # --- PALETTE (optional, --palette): Roblox always smooths mesh textures (SurfaceAppearance.ResampleMode
+    #     "Pixelated" exists but is not implemented yet), so pixel art looks blurry. Instead every
+    #     VoxEdit face is cut into rectangles of ONE colour and each rectangle samples the centre of a
+    #     flat colour tile: nothing to blur, sharp at any distance and any graphics quality.
+    if args.palette:
+        V = np.vstack(verts).astype(np.float64)
+        newV, newVG, newF, newUV, newK = [], [], [], [], []
+
+        def ckey(rgb, pb, ex):
+            k = ("col", tuple(round(float(c), 4) for c in rgb[:3]), tuple(round(float(c), 4) for c in pb))
+            if k not in keys:
+                keys[k] = (np.tile(np.array([float(c) for c in rgb[:3]] + [1.0], np.float32), (2, 2, 1)), 2, 2)
+                extras[k] = (np.tile(np.array([float(c) for c in pb], np.float32), (2, 2, 1)), ex)
+            return k
+
+        def greedy_rects(lab):
+            hh, ww = lab.shape
+            done = np.zeros((hh, ww), bool)
+            out_r = []
+            for y in range(hh):
+                for x in range(ww):
+                    if done[y, x]:
+                        continue
+                    c = lab[y, x]
+                    x2 = x + 1
+                    while x2 < ww and not done[y, x2] and lab[y, x2] == c:
+                        x2 += 1
+                    y2 = y + 1
+                    while y2 < hh and (not done[y2, x:x2].any()) and (lab[y2, x:x2] == c).all():
+                        y2 += 1
+                    done[y:y2, x:x2] = True
+                    out_r.append((x, y, x2, y2))
+            return out_r
+
+        groups = {}
+        for fi, (vi, uvs, k) in enumerate(zip(faces, loop_uv, poly_keys)):
+            if k[0] != "img":
+                base_i = len(newV)
+                newV += [V[i] for i in vi]; newVG += [vgroup[i] for i in vi]
+                newF.append(list(range(base_i, base_i + len(vi)))); newUV.append(uvs); newK.append(k)
+                continue
+            w, h = keys[k][1], keys[k][2]
+            us = [min(max(u, 0.0), 1.0) * w for u, v in uvs]
+            vs = [min(max(v, 0.0), 1.0) * h for u, v in uvs]
+            rect = (int(round(min(us))), int(round(min(vs))), int(round(max(us))), int(round(max(vs))))
+            p = V[vi]
+            nrm = np.cross(p[1] - p[0], p[2] - p[0])
+            ln = np.linalg.norm(nrm)
+            if ln < 1e-12:
+                continue
+            nrm = nrm / ln
+            gk = (k, rect, tuple(np.round(nrm, 3)), round(float(nrm @ p[0]), 3), vgroup[vi[0]])
+            groups.setdefault(gk, []).append(fi)
+        for (k, (x0, y0, x1, y1), nt, _, vg), fis in groups.items():
+            w, h = keys[k][1], keys[k][2]
+            ex = extras[k][1]
+            vi = faces[fis[0]]; uvs = loop_uv[fis[0]]
+            M = np.array([[uvs[j][0] * w, uvs[j][1] * h, 1.0] for j in range(3)])
+            if abs(np.linalg.det(M)) < 1e-9 or x1 <= x0 or y1 <= y0:
+                # (rare) cannot map: keep the original faces with the colour of their centre texel
+                cx = min(max((x0 + x1) // 2, 0), w - 1); cy = min(max((y0 + y1) // 2, 0), h - 1)
+                kk = ckey(keys[k][0][cy, cx], extras[k][0][cy, cx], ex)
+                for fi in fis:
+                    base_i = len(newV)
+                    newV += [V[i] for i in faces[fi]]; newVG += [vgroup[i] for i in faces[fi]]
+                    newF.append(list(range(base_i, base_i + len(faces[fi])))); newUV.append([(0.5, 0.5)] * len(faces[fi])); newK.append(kk)
+                continue
+            Aff = np.linalg.solve(M, V[vi[:3]])  # (u_px, v_px, 1) -> position on the face plane
+            reg = keys[k][0][y0:y1, x0:x1]
+            preg = extras[k][0][y0:y1, x0:x1]
+            hh, ww = reg.shape[:2]
+            flat = np.concatenate([np.round(reg[..., :3], 4), np.round(preg, 4)], -1).reshape(-1, 6)
+            uniq, lab = np.unique(flat, axis=0, return_inverse=True)
+            lab = lab.reshape(hh, ww)
+            nref = np.array(nt)
+            for (tx0, ty0, tx1, ty1) in greedy_rects(lab):
+                c = uniq[lab[ty0, tx0]]
+                kk = ckey(c[:3], c[3:], ex)
+                cs = [(x0 + tx0, y0 + ty0), (x0 + tx1, y0 + ty0), (x0 + tx1, y0 + ty1), (x0 + tx0, y0 + ty1)]
+                P4 = [np.array([cx, cy, 1.0]) @ Aff for cx, cy in cs]
+                if np.cross(P4[1] - P4[0], P4[2] - P4[0]) @ nref < 0:
+                    P4 = P4[::-1]
+                base_i = len(newV)
+                newV += P4; newVG += [vg] * 4
+                newF.append([base_i, base_i + 1, base_i + 2, base_i + 3]); newUV.append([(0.5, 0.5)] * 4); newK.append(kk)
+        verts = [np.array(newV, np.float64)]
+        vgroup = newVG; faces = newF; loop_uv = newUV; poly_keys = newK
+        for k in [k for k in keys if k[0] == "img"]:
+            del keys[k]; del extras[k]
+        ntri = sum(len(f) - 2 for f in faces)
+        log(f"Palette: {len(faces)} flat-colour faces ({ntri} triangles), {len(keys)} colours")
+        if ntri > 20000:
+            log("Warning: more than 20000 triangles (Roblox limit per MeshPart); drop --palette")
+
+    # --- each VoxEdit texture is a 128x128 image where only a corner is used: crop it to the area the
+    #     UVs really touch and merge identical crops. The atlas becomes much smaller, so it is enlarged
+    #     xK without smoothing and the voxels look sharp in Roblox (1 px per voxel looked blurry).
+    used = {}
+    for k, uvs in zip(poly_keys, loop_uv):
+        if k[0] != "img":
+            continue
+        w, h = keys[k][1], keys[k][2]
+        b = used.setdefault(k, [1e9, 1e9, -1e9, -1e9])
+        for u, v in uvs:
+            u = min(max(u, 0.0), 1.0); v = min(max(v, 0.0), 1.0)
+            b[0] = min(b[0], u * w); b[1] = min(b[1], v * h); b[2] = max(b[2], u * w); b[3] = max(b[3], v * h)
+    crop = {}
+    for k, (x0, y0, x1, y1) in used.items():
+        px, w, h = keys[k]
+        X0, Y0 = max(int(math.floor(x0 + 1e-4)), 0), max(int(math.floor(y0 + 1e-4)), 0)
+        X1, Y1 = min(int(math.ceil(x1 - 1e-4)), w), min(int(math.ceil(y1 - 1e-4)), h)
+        if X1 <= X0: X0, X1 = min(X0, w - 1), min(X0, w - 1) + 1
+        if Y1 <= Y0: Y0, Y1 = min(Y0, h - 1), min(Y0, h - 1) + 1
+        keys[k] = (px[Y0:Y1, X0:X1], X1 - X0, Y1 - Y0)
+        extras[k] = (extras[k][0][Y0:Y1, X0:X1], extras[k][1])
+        crop[k] = (X0, Y0, w, h)
+    alias, seen = {}, {}
+    for k in keys:
+        hsh = hashlib.md5(np.ascontiguousarray(keys[k][0]).tobytes() + np.ascontiguousarray(extras[k][0]).tobytes()).hexdigest()
+        if hsh in seen:
+            alias[k] = seen[hsh]
+        else:
+            seen[hsh] = k
+
     def pack(A):
         x = y = sh = 0; pos = {}
-        for k in sorted(keys, key=lambda k: (-keys[k][2], -keys[k][1])):
+        for k in sorted((k for k in keys if k not in alias), key=lambda k: (-keys[k][2], -keys[k][1])):
             w, h = keys[k][1] + 2, keys[k][2] + 2
             if w > A: return None
             if x + w > A: x = 0; y += sh; sh = 0
@@ -496,7 +621,9 @@ def process(path, args):
     while True:
         pos = pack(A)
         if pos: break
-        A *= 2
+        A += 16  # (not only powers of 2: a tighter atlas = bigger xK = sharper voxels)
+    for k, a in alias.items():
+        pos[k] = pos[a]
     atlas = np.zeros((A, A, 4), np.float32)
     patlas = np.zeros((A, A, 3), np.float32)
     patlas[..., 1] = 1.0
@@ -510,7 +637,17 @@ def process(path, args):
     K = max(1, args.tex // A)
     big = np.repeat(np.repeat(atlas, K, 0), K, 1)
     T = A * K
-    img = bpy.data.images.new(base + "_Atlas", T, T, alpha=False)
+    # Roblox rescales textures that are not a power of 2 (with smoothing): pixel art got blurry.
+    # The atlas keeps its exact xK pixel grid inside a power-of-2 canvas (the rest stays empty).
+    PT = 1 << (T - 1).bit_length()
+    def padP(arr):
+        if PT == T:
+            return arr
+        o = np.zeros((PT, PT) + arr.shape[2:], arr.dtype)
+        o[:T, :T] = arr
+        return o
+    big = padP(big)
+    img = bpy.data.images.new(base + "_Atlas", PT, PT, alpha=False)
     img.pixels.foreach_set(big.ravel())
     img.filepath_raw = os.path.join(out, base + "_Atlas.png"); img.file_format = "PNG"; img.save()
 
@@ -530,13 +667,13 @@ def process(path, args):
             nmap, rmap, mmap, emap = make_maps(cM, pM, 1, args, use_def)
         else:
             nmap, rmap, mmap, emap = make_maps(atlas, patlas, K, args, use_def)
-        maps["normal"] = save_png(base + "_Normal", nmap, out)
-        maps["rough"] = save_png(base + "_Roughness", rmap, out)
-        maps["metal"] = save_png(base + "_Metalness", mmap, out)
+        maps["normal"] = save_png(base + "_Normal", padP(nmap), out)
+        maps["rough"] = save_png(base + "_Roughness", padP(rmap), out)
+        maps["metal"] = save_png(base + "_Metalness", padP(mmap), out)
         if emap.max() > 0.004:
             if not args.emis_relative:
                 emap = np.where(emap > 0.004, 1.0, 0.0).astype(np.float32)  # everything that glows, at 100%
-            maps["emis"] = save_png(base + "_Emissive", emap, out)
+            maps["emis"] = save_png(base + "_Emissive", padP(emap), out)
         pbr_note = (f"Normal, Roughness, Metalness{', Emissive' if 'emis' in maps else ''} "
                     f"({'default roughness/metal: the model has none' if use_def else 'roughness/metal from the model'})")
         log("PBR maps:", pbr_note)
@@ -544,9 +681,14 @@ def process(path, args):
     uv_flat = []
     for k, uvs in zip(poly_keys, loop_uv):
         x, y = pos[k]; w, h = keys[k][1], keys[k][2]
+        cx = crop.get(k)
         for u, v in uvs:
             u = min(max(u, 0.0), 1.0); v = min(max(v, 0.0), 1.0)
-            uv_flat += [(x + u * w) / A, (y + v * h) / A]
+            if cx:
+                uu, vv = u * cx[2] - cx[0], v * cx[3] - cx[1]
+            else:
+                uu, vv = u * w, v * h
+            uv_flat += [(x + uu) / A * T / PT, (y + vv) / A * T / PT]
     me = bpy.data.meshes.new(base + "_Body")
     me.from_pydata(np.vstack(verts).tolist(), [], faces)
     uvlay = me.uv_layers.new(name="UVMap")
@@ -682,7 +824,7 @@ def process(path, args):
              f"Height: {args.height} studs | voxel = {voxel:.4f} studs",
              f"Mesh: {tris} triangles, {len(me.vertices)} vertices",
              f"Bones: {len(kept) + 1} (Root + {len(kept)}; there were {len(animated)} animated nodes)",
-             f"Texture: {T}x{T} (real atlas {A}px, upscaled x{K} without smoothing)",
+             f"Texture: {PT}x{PT} (real atlas {A}px, upscaled x{K} without smoothing = {T}px, on a power-of-2 canvas)",
              f"PBR maps: {pbr_note}",
              f"Rest pose: {rest_key}", "", "Animations (max error against the original, in voxels):"]
     for act, n, an in acts:

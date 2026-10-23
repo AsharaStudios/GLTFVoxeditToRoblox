@@ -36,10 +36,11 @@ $Strings = @{
         Subtitle = 'Put your VoxEdit .gltf / .glb files in the Input folder and press Convert.'
         Language = 'Language'
         Height = 'Height (studs)'; Texture = 'Texture'
-        Pbr = 'PBR maps'; Skip = 'Skip already converted'; OpenWhenDone = 'Open Output when done'
+        Pbr = 'PBR maps'; Palette = 'Sharp pixels'; Skip = 'Skip already converted'; OpenWhenDone = 'Open Output when done'
         TipHeight = 'Final height of the character in studs'
         TipTexture = 'Size of the texture atlas (Roblox downsizes anything above 1024)'
         TipPbr = 'Also generate the Normal, Roughness, Metalness and Emissive maps'
+        TipPalette = 'Cuts every face into flat-colour rectangles so the pixel art stays sharp in Roblox (about 4x more triangles; kits are not affected)'
         TipSkip = 'Do not convert files that already have <Name>_Roblox.fbx in Output'
         TipOpen = 'Open the Output folder when the conversion finishes'
         Empty = "The Input folder is empty.`nPut .gltf / .glb files there, then press Refresh."
@@ -75,10 +76,11 @@ $Strings = @{
         Subtitle = 'Pon tus archivos .gltf / .glb de VoxEdit en la carpeta Input y presiona Convertir.'
         Language = 'Idioma'
         Height = 'Altura (studs)'; Texture = 'Textura'
-        Pbr = 'Mapas PBR'; Skip = 'Saltar los ya convertidos'; OpenWhenDone = 'Abrir Output al terminar'
+        Pbr = 'Mapas PBR'; Palette = 'Píxeles nítidos'; Skip = 'Saltar los ya convertidos'; OpenWhenDone = 'Abrir Output al terminar'
         TipHeight = 'Altura final del personaje en studs'
         TipTexture = 'Tamaño del atlas de textura (Roblox reduce todo lo que pase de 1024)'
         TipPbr = 'Generar también los mapas Normal, Roughness, Metalness y Emissive'
+        TipPalette = 'Corta cada cara en rectángulos de un solo color para que el pixel art se vea nítido en Roblox (unas 4 veces más triángulos; no afecta a los kits)'
         TipSkip = 'No convertir los archivos que ya tienen <Nombre>_Roblox.fbx en Output'
         TipOpen = 'Abrir la carpeta Output cuando termine la conversión'
         Empty = "La carpeta Input está vacía.`nPon ahí archivos .gltf / .glb y presiona Actualizar."
@@ -297,9 +299,10 @@ function New-Check($checked) {
     $c
 }
 $chkPbr  = New-Check $true
+$chkPalette = New-Check $false
 $chkSkip = New-Check $false
 $chkOpen = New-Check $false
-$opts.Controls.AddRange(@($lblHeight, $numHeight, $lblTex, $cmbTex, $chkPbr, $chkSkip, $chkOpen))
+$opts.Controls.AddRange(@($lblHeight, $numHeight, $lblTex, $cmbTex, $chkPbr, $chkPalette, $chkSkip, $chkOpen))
 $main.Controls.Add($opts, 0, 1)
 
 # file list
@@ -354,9 +357,9 @@ $main.Controls.Add($credit, 0, 6)
 function Set-Texts {
     $sub.Text = Tr Subtitle; $lblLang.Text = Tr Language
     $lblHeight.Text = Tr Height; $lblTex.Text = Tr Texture
-    $chkPbr.Text = Tr Pbr; $chkSkip.Text = Tr Skip; $chkOpen.Text = Tr OpenWhenDone
+    $chkPbr.Text = Tr Pbr; $chkPalette.Text = Tr Palette; $chkSkip.Text = Tr Skip; $chkOpen.Text = Tr OpenWhenDone
     $tip.SetToolTip($numHeight, (Tr TipHeight)); $tip.SetToolTip($cmbTex, (Tr TipTexture))
-    $tip.SetToolTip($chkPbr, (Tr TipPbr)); $tip.SetToolTip($chkSkip, (Tr TipSkip)); $tip.SetToolTip($chkOpen, (Tr TipOpen))
+    $tip.SetToolTip($chkPbr, (Tr TipPbr)); $tip.SetToolTip($chkPalette, (Tr TipPalette)); $tip.SetToolTip($chkSkip, (Tr TipSkip)); $tip.SetToolTip($chkOpen, (Tr TipOpen))
     $empty.Text = Tr Empty
     $btnConvert.Text = Tr Convert; $btnCancel.Text = Tr Cancel; $btnOutput.Text = Tr OpenOutput
     $btnClear.Text = Tr ClearOutput; $btnInput.Text = Tr OpenInput; $btnRefresh.Text = Tr Refresh; $btnLog.Text = Tr OpenLog
@@ -618,7 +621,7 @@ function Update-List {
 # ------------------------------------------------------------------ conversion
 # a run is a queue of jobs, one Blender each: first all the normal models together, then one job per kit
 function Set-Busy($busy) {
-    foreach ($c in $numHeight, $cmbTex, $chkPbr, $chkSkip, $btnRefresh, $btnClear, $cmbLang) { $c.Enabled = -not $busy }
+    foreach ($c in $numHeight, $cmbTex, $chkPbr, $chkPalette, $chkSkip, $btnRefresh, $btnClear, $cmbLang) { $c.Enabled = -not $busy }
     foreach ($r in $script:rows.Values) { $r.Check.Enabled = -not $busy }
     $btnConvert.Visible = -not $busy; $btnCancel.Visible = $busy
     if (-not $busy) { $form.Text = 'VoxToRoblox' }
@@ -667,6 +670,7 @@ function Start-NextJob {
     } else {
         $argv = @('-b', '--factory-startup', '--python', (& $q $PyScript), '--') + @($j.Paths | ForEach-Object { & $q $_ }) +
                 @('--out', (& $q $OutDir)) + $common
+        if ($chkPalette.Checked) { $argv += '--palette' }
         $overallLabel.Text = Tr StartingBlender
     }
     $overallLabel.ForeColor = $ColText
