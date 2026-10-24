@@ -2,7 +2,7 @@
 # that share the SAME VoxEdit body (Equip_<bone> nodes). Everything comes out at the same scale:
 #   <Kit>_Body.fbx          rigid rig: one mesh per bone (each weighted 100% to its bone) -> Motor6D in Roblox
 #   <Set>.fbx               per set: one mesh per bone, no rig, in the body's rest pose
-#   <Weapon>.fbx            loose weapons (glTF without a body): one "Handle" mesh
+#   <Weapon>.fbx            loose weapons (GLTF without a body): one "Handle" mesh
 #   + atlas and PBR maps (Normal, Roughness, Metalness, Emissive) for each FBX
 #   <Kit>_Kit.blend         everything together for review
 # Usage: blender -b --factory-startup --python voxedit_kit_to_roblox.py -- GLTFS... [--name Kit] [--out FOLDER]
@@ -28,8 +28,8 @@ def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser(prog="voxedit_kit_to_roblox")
     ap.add_argument("inputs", nargs="+")
-    ap.add_argument("--name", default=None, help="kit name (default: from the first glTF with a body)")
-    ap.add_argument("--out", default=None, help="output folder (default: <first glTF folder>/Roblox/<Kit>_Kit)")
+    ap.add_argument("--name", default=None, help="kit name (default: from the first GLTF with a body)")
+    ap.add_argument("--out", default=None, help="output folder (default: <first GLTF folder>/Roblox/<Kit>_Kit)")
     ap.add_argument("--height", type=float, default=5.5, help="BODY height in studs (default 5.5)")
     ap.add_argument("--tex", type=int, default=1024)
     ap.add_argument("--rest", default=None, help="rest pose (default: the T)")
@@ -77,7 +77,7 @@ def pick_pose(actions, want):
     return actions[0]
 
 def bone_of(o):
-    """('body'|'equip', bone) for a mesh imported from the VoxEdit glTF."""
+    """('body'|'equip', bone) for a mesh imported from the VoxEdit GLTF."""
     p, equip = o.parent, None
     while p is not None:
         m = re.match(r"Equip_(.+?)-Global", p.name)
@@ -142,7 +142,7 @@ def pick_equip_pose(actions, want, rest):
     return others[0] if others else rest
 
 def load(path, rest, equip_pose=None):
-    """imports a glTF. The BODY is taken in the rest pose (T); the equipment SHAPE in the equipment pose
+    """imports a GLTF. The BODY is taken in the rest pose (T); the equipment SHAPE in the equipment pose
     (Idle: in the VoxEdit T-pose the inner equipment pieces collapse onto each other) and is then carried
     to the T bone by bone. Returns meshes (world coords), bone pivots and body animations."""
     reset_scene()
@@ -441,9 +441,9 @@ def build(args):
     bodies = [d for d in data if any(m["kind"] == "body" for m in d[1])]
     if not bodies:
         raise ValueError("none of the files has the VoxEdit body: a kit needs at least one equipment piece exported on the avatar")
-    # body and animations: from the glTF with the most animations (e.g. the AvatarBase); they all share the same body
+    # body and animations: from the GLTF with the most animations (e.g. the AvatarBase); they all share the same body
     fbody, bmeshes, pivots, body_anims, body_Wr = max(bodies, key=lambda d: len(d[3]))
-    # each glTF's equipment is carried to the chosen body's bones (in case that glTF came in another pose)
+    # each GLTF's equipment is carried to the chosen body's bones (in case that GLTF came in another pose)
     for d in data:
         if d[0] == fbody or not d[4]:
             continue
@@ -599,10 +599,10 @@ def build(args):
     for o in body_objs + [hrp]:
         o.name = "Body__" + o.name  # (the sets reuse the bone names)
     lines.append(f"{kit}_Body.fbx: {len(body_objs)} pieces + HumanoidRootPart, texture {texinfo}")
-    lines += anim_files or ["(the glTF files have no body animations: only 1-frame poses)"]
+    lines += anim_files or ["(the GLTF files have no body animations: only 1-frame poses)"]
     log("body done")
 
-    # ---- EQUIPMENT sets (one per glTF that has Equip_ nodes) and WEAPONS (glTF without body)
+    # ---- EQUIPMENT sets (one per GLTF that has Equip_ nodes) and WEAPONS (GLTF without body)
     coll_sets = []
     for set_idx, (f, meshes, _, _, _) in enumerate(data):
         name = safe(os.path.splitext(os.path.basename(f))[0])

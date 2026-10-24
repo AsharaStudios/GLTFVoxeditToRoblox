@@ -1,8 +1,9 @@
 # Models to convert and everything the converter generates
-# (VoxToRoblox creates Input\ and Output\ by itself when they are missing)
+# (the apps create Input\, Output\ and Projects\ by themselves when they are missing)
 Input/
 Output/
 Roblox/
+Projects/
 *.gltf
 *.glb
 *.bin
@@ -10,6 +11,7 @@ Roblox/
 # Logs
 log.txt
 kit_log.txt
+log_projects.txt
 
 # Python cache (Blender creates it when the kit script loads the converter)
 __pycache__/
@@ -23,3 +25,6 @@ __pycache__/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Notes kept only on this computer
+docs/

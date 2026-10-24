@@ -1,4 +1,4 @@
-# VoxToRoblox - converts animated VoxEdit glTF files into a rig + FBX animations for Roblox
+# VoxToRoblox - converts animated VoxEdit GLTF files into a rig + FBX animations for Roblox
 # Usage: blender -b --factory-startup --python voxedit_to_roblox.py -- INPUTS... [options]
 import bpy, bmesh, sys, os, re, math, argparse, time, traceback, hashlib
 import numpy as np
@@ -836,7 +836,7 @@ def process(path, args):
     log(f"OK {base}: {tris} tris, {len(kept) + 1} bones, {len(acts)} animations, {time.time() - t0:.1f}s -> {out}")
 
 def render_thumb(src, dst, size):
-    """small preview of a glTF as VoxEdit exports it: Workbench render, 3/4 front view, transparent background."""
+    """small preview of a GLTF as VoxEdit exports it: Workbench render, 3/4 front view, transparent background."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=src)
     sc = bpy.context.scene

@@ -16,11 +16,12 @@ try {
 } catch { $Native = $false }
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-$Root     = $PSScriptRoot
+$AppDir   = $PSScriptRoot                    # (this script, the Python scripts, icons and logs live in app\)
+$Root     = Split-Path $AppDir -Parent      # (the launchers, the readmes and Input / Output live here)
 $InputDir = Join-Path $Root 'Input'
 $OutDir   = Join-Path $Root 'Output'
-$PyScript = Join-Path $Root 'voxedit_to_roblox.py'
-$LogFile  = Join-Path $Root 'log.txt'
+$PyScript = Join-Path $AppDir 'voxedit_to_roblox.py'
+$LogFile  = Join-Path $AppDir 'log.txt'
 $ProgFile = Join-Path $env:TEMP "voxtoroblox_progress_$PID.txt"   # (per window: two open windows do not mix their progress)
 $AppData  = Join-Path $env:LOCALAPPDATA 'VoxToRoblox'
 $Settings = Join-Path $AppData 'settings.txt'
@@ -32,7 +33,7 @@ foreach ($d in $InputDir, $OutDir, $AppData) {
 # ------------------------------------------------------------------ languages
 $Strings = @{
     en = @{
-        BlenderMissing = "Blender was not found.`n`nInstall Blender 4.4 or newer from blender.org, or set its path at the top of VoxToRoblox.ps1."
+        BlenderMissing = "Blender was not found.`n`nInstall Blender 4.4 or newer from blender.org, or set its path at the top of app\VoxToRoblox.ps1."
         Subtitle = 'Put your VoxEdit .gltf / .glb files in the Input folder and press Convert.'
         Language = 'Language'
         Height = 'Height (studs)'; Texture = 'Texture'
@@ -49,6 +50,9 @@ $Strings = @{
         TipClear = 'Move everything in the Output folder to the Recycle Bin'
         Credit = 'Created by Ashara Studios with love'
         ColEquip = 'Equipable'; ColFile = 'File'; ColProgress = 'Progress'; ColStatus = 'Status'
+        ColExport = 'Export'; TipExportCol = 'Tick the files to convert (click here to tick or untick them all)'
+        TipExportRow = 'Export: convert this file'; NotSelected = 'Not selected'
+        NoneSelected = 'Tick at least one file in the Export column'
         TipEquipCol = 'Tick VoxEdit equipment (helmet, chest, arms, legs, weapon, shield...). Ticked files in the same folder are converted together as one kit.'
         TipEquipRow = 'Equipable: convert it with the kit algorithm (body + equipment sets)'
         Ready = 'Ready'; ReadyKit = "Ready - kit '{0}'"
@@ -72,7 +76,7 @@ $Strings = @{
         CloseAsk = 'A conversion is running. Stop it and close?'
     }
     es = @{
-        BlenderMissing = "No se encontró Blender.`n`nInstala Blender 4.4 o superior desde blender.org, o pon su ruta al inicio de VoxToRoblox.ps1."
+        BlenderMissing = "No se encontró Blender.`n`nInstala Blender 4.4 o superior desde blender.org, o pon su ruta al inicio de app\VoxToRoblox.ps1."
         Subtitle = 'Pon tus archivos .gltf / .glb de VoxEdit en la carpeta Input y presiona Convertir.'
         Language = 'Idioma'
         Height = 'Altura (studs)'; Texture = 'Textura'
@@ -89,6 +93,9 @@ $Strings = @{
         TipClear = 'Mandar todo lo de la carpeta Output a la Papelera de reciclaje'
         Credit = 'Creado por Ashara Studios con amor'
         ColEquip = 'Equipable'; ColFile = 'Archivo'; ColProgress = 'Progreso'; ColStatus = 'Estado'
+        ColExport = 'Exportar'; TipExportCol = 'Marca los archivos que quieres convertir (clic aquí para marcarlos o desmarcarlos todos)'
+        TipExportRow = 'Exportar: convertir este archivo'; NotSelected = 'No seleccionado'
+        NoneSelected = 'Marca al menos un archivo en la columna Exportar'
         TipEquipCol = 'Marca los equipables de VoxEdit (casco, pecho, brazos, piernas, arma, escudo...). Los archivos marcados de la misma carpeta se convierten juntos como un kit.'
         TipEquipRow = 'Equipable: se convierte con el algoritmo de kit (cuerpo + sets de equipo)'
         Ready = 'Listo para convertir'; ReadyKit = "Listo - kit '{0}'"
@@ -222,7 +229,7 @@ $form.StartPosition = 'CenterScreen'
 $form.ClientSize = New-Object System.Drawing.Size((Px 880), (Px 590))
 $form.MinimumSize = New-Object System.Drawing.Size((Px 640), (Px 440))
 $form.BackColor = $ColBg; $form.ForeColor = $ColText
-$LogoFile = Join-Path $Root 'VoxToRoblox.ico'
+$LogoFile = Join-Path $AppDir 'VoxToRoblox.ico'
 $Logo = $null
 try {
     $form.Icon = New-Object System.Drawing.Icon($LogoFile)
@@ -310,8 +317,9 @@ $listBox = New-Object System.Windows.Forms.Panel
 $listBox.Dock = 'Fill'; $listBox.AutoScroll = $true; $listBox.BackColor = $ColSurface
 $listBox.Margin = New-Object System.Windows.Forms.Padding(0, (Px 12), 0, 0)
 $table = New-Object System.Windows.Forms.TableLayoutPanel
-$table.Dock = 'Top'; $table.AutoSize = $true; $table.AutoSizeMode = 'GrowAndShrink'; $table.ColumnCount = 5
+$table.Dock = 'Top'; $table.AutoSize = $true; $table.AutoSizeMode = 'GrowAndShrink'; $table.ColumnCount = 6
 $table.Padding = New-Object System.Windows.Forms.Padding((Px 4), (Px 4), (Px 12), (Px 6))
+[void]$table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute', (Px 84))))
 [void]$table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute', (Px 84))))
 [void]$table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute', (Px 56))))
 foreach ($w in 40, 30, 30) { [void]$table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent', $w))) }
@@ -380,9 +388,10 @@ $form.Add_HandleCreated({
 $listBox.Add_HandleCreated({ if ($Native) { [void][VoxToRoblox.Native]::SetWindowTheme($listBox.Handle, 'DarkMode_Explorer', $null) } })
 
 # ------------------------------------------------------------------ file list
-$KitScript = Join-Path $Root 'voxedit_kit_to_roblox.py'
+$KitScript = Join-Path $AppDir 'voxedit_kit_to_roblox.py'
 $script:rows = @{}           # path -> @{ Check; Thumb; ThumbPath; Name; Bar; Status; Waiting; Done }
 $script:equipChoice = @{}    # path -> what the user ticked (overrides the name rule)
+$script:exportChoice = @{}   # path -> unticked in the Export column (everything is ticked by default)
 $script:fileKey = ''
 $script:proc = $null
 
@@ -482,6 +491,7 @@ function Test-Converted($path) {
 $EquipWords = 'Helmet', 'Shield', 'Weapon', 'Legs', 'Arms', 'Chest'
 function Test-Equipable($file) { $file.BaseName -match "(?i)$($EquipWords -join '|')" }
 function Test-Ticked($path) { $r = $script:rows[$path]; $r -and $r.Check.Checked }
+function Test-Export($path) { $r = $script:rows[$path]; $r -and $r.Export.Checked }
 
 # ticked files are grouped into kits by folder; the kit is named after the subfolder,
 # or (directly in Input) after the word the file names share, e.g. Knight_Helmet + Knight_Legs -> Knight
@@ -506,7 +516,7 @@ function Get-KitName($dir, $paths) {
 function Get-Kits {
     $groups = [ordered]@{}
     foreach ($p in ($script:rows.Keys | Sort-Object)) {
-        if (-not (Test-Ticked $p)) { continue }
+        if (-not (Test-Ticked $p) -or -not (Test-Export $p)) { continue }
         $dir = [IO.Path]::GetDirectoryName($p)
         if (-not $groups.Contains($dir)) { $groups[$dir] = New-Object System.Collections.ArrayList }
         [void]$groups[$dir].Add($p)
@@ -528,20 +538,53 @@ function Set-Row($path, $text, $color, [double]$frac = -1) {
 function Add-HeaderRow {
     $table.RowCount = 1
     [void]$table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
-    $i = 0
+    # "Export" header: a check box that ticks / unticks every file
+    $all = New-Object System.Windows.Forms.CheckBox
+    $all.Text = Tr ColExport; $all.AutoSize = $true; $all.Anchor = 'None'; $all.Font = $FontSmall
+    $all.FlatStyle = 'Flat'; $all.ForeColor = $ColMuted; $all.FlatAppearance.BorderColor = $ColMuted
+    $all.Margin = New-Object System.Windows.Forms.Padding(0, (Px 4), 0, (Px 2))
+    $all.Checked = $true
+    $tip.SetToolTip($all, (Tr TipExportCol))
+    $all.Add_Click({
+        $script:bulk = $true
+        foreach ($r in $script:rows.Values) { $r.Export.Checked = $this.Checked; $script:exportChoice[$r.Export.Tag] = $this.Checked }
+        $script:bulk = $false
+        if (-not $script:proc) { Update-Statuses }
+    })
+    $script:exportAll = $all
+    $table.Controls.Add($all, 0, 0)
+    $i = 1
     foreach ($h in (Tr ColEquip), '', (Tr ColFile), (Tr ColProgress), (Tr ColStatus)) {
         $l = New-Label $h $ColMuted
         $l.Font = $FontSmall; $l.Margin = New-Object System.Windows.Forms.Padding((Px 3), (Px 4), 0, (Px 2))
-        if ($i -eq 0) { $l.Anchor = 'None'; $tip.SetToolTip($l, (Tr TipEquipCol)) }
-        if ($i -eq 3) { $l.Margin = New-Object System.Windows.Forms.Padding((Px 8), (Px 4), 0, (Px 2)) }
+        if ($i -eq 1) { $l.Anchor = 'None'; $tip.SetToolTip($l, (Tr TipEquipCol)) }
+        if ($i -eq 4) { $l.Margin = New-Object System.Windows.Forms.Padding((Px 8), (Px 4), 0, (Px 2)) }
         $table.Controls.Add($l, $i, 0); $i++
     }
+}
+
+# the header box shows ticked only when every file is ticked
+function Update-ExportAll {
+    if (-not $script:exportAll) { return }
+    $script:exportAll.Checked = (@($script:rows.Values | Where-Object { -not $_.Export.Checked }).Count -eq 0)
 }
 
 function Add-Row($file) {
     $i = $table.RowCount
     $table.RowCount = $i + 1
     [void]$table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize')))
+    $exp = New-Object System.Windows.Forms.CheckBox
+    $exp.AutoSize = $true; $exp.Anchor = 'None'; $exp.FlatStyle = 'Flat'
+    $exp.FlatAppearance.BorderColor = $ColMuted; $exp.ForeColor = $ColText
+    $exp.Checked = -not ($script:exportChoice.ContainsKey($file.FullName) -and -not $script:exportChoice[$file.FullName])
+    $exp.Tag = $file.FullName
+    $tip.SetToolTip($exp, (Tr TipExportRow))
+    $exp.Add_CheckedChanged({
+        if ($script:bulk) { return }
+        $script:exportChoice[$this.Tag] = $this.Checked
+        Update-ExportAll
+        if (-not $script:proc) { Update-Statuses }
+    })
     $chk = New-Object System.Windows.Forms.CheckBox
     $chk.AutoSize = $true; $chk.Anchor = 'None'; $chk.FlatStyle = 'Flat'
     $chk.FlatAppearance.BorderColor = $ColMuted; $chk.ForeColor = $ColText
@@ -567,9 +610,9 @@ function Add-Row($file) {
     $bar.Margin = New-Object System.Windows.Forms.Padding((Px 8), 0, (Px 14), 0)
     $st = New-Object System.Windows.Forms.Label
     $st.AutoEllipsis = $true; $st.Dock = 'Fill'; $st.TextAlign = 'MiddleLeft'
-    $table.Controls.Add($chk, 0, $i); $table.Controls.Add($pic, 1, $i); $table.Controls.Add($name, 2, $i)
-    $table.Controls.Add($bar, 3, $i); $table.Controls.Add($st, 4, $i)
-    $script:rows[$file.FullName] = @{ Check = $chk; Thumb = $pic; ThumbPath = $thumb; Name = $name; Bar = $bar; Status = $st; Waiting = $false; Done = $false }
+    $table.Controls.Add($exp, 0, $i); $table.Controls.Add($chk, 1, $i); $table.Controls.Add($pic, 2, $i)
+    $table.Controls.Add($name, 3, $i); $table.Controls.Add($bar, 4, $i); $table.Controls.Add($st, 5, $i)
+    $script:rows[$file.FullName] = @{ Export = $exp; Check = $chk; Thumb = $pic; ThumbPath = $thumb; Name = $name; Bar = $bar; Status = $st; Waiting = $false; Done = $false }
 }
 
 # idle status of every row (which kit it goes to, whether it was converted before)
@@ -585,6 +628,7 @@ function Update-Statuses {
         }
     }
     foreach ($p in $script:rows.Keys) {
+        if (-not (Test-Export $p)) { Set-Row $p (Tr NotSelected) $ColMuted 0; continue }
         if (Test-Ticked $p) { continue }
         if (Test-Converted $p) {
             $done++
@@ -614,6 +658,7 @@ function Update-List {
     $empty.Visible = ($files.Count -eq 0)
     $table.Visible = ($files.Count -gt 0)
     $btnConvert.Enabled = ($files.Count -gt 0)
+    Update-ExportAll
     Update-Statuses
     Start-Thumbnails
 }
@@ -622,7 +667,8 @@ function Update-List {
 # a run is a queue of jobs, one Blender each: first all the normal models together, then one job per kit
 function Set-Busy($busy) {
     foreach ($c in $numHeight, $cmbTex, $chkPbr, $chkPalette, $chkSkip, $btnRefresh, $btnClear, $cmbLang) { $c.Enabled = -not $busy }
-    foreach ($r in $script:rows.Values) { $r.Check.Enabled = -not $busy }
+    foreach ($r in $script:rows.Values) { $r.Check.Enabled = -not $busy; $r.Export.Enabled = -not $busy }
+    if ($script:exportAll) { $script:exportAll.Enabled = -not $busy }
     $btnConvert.Visible = -not $busy; $btnCancel.Visible = $busy
     if (-not $busy) { $form.Text = 'VoxToRoblox' }
 }
@@ -630,7 +676,11 @@ function Set-Busy($busy) {
 function Start-Convert {
     Update-List
     $script:jobs = New-Object System.Collections.ArrayList
-    $normal = @($script:rows.Keys | Where-Object { -not (Test-Ticked $_) -and -not ($chkSkip.Checked -and (Test-Converted $_)) } | Sort-Object)
+    if (-not @($script:rows.Keys | Where-Object { Test-Export $_ }).Count) {
+        $overallLabel.ForeColor = $ColErr; $overallLabel.Text = Tr NoneSelected
+        return
+    }
+    $normal = @($script:rows.Keys | Where-Object { (Test-Export $_) -and -not (Test-Ticked $_) -and -not ($chkSkip.Checked -and (Test-Converted $_)) } | Sort-Object)
     if ($normal.Count) { [void]$script:jobs.Add(@{ Kind = 'normal'; Paths = $normal; Units = $normal.Count }) }
     foreach ($kit in @(Get-Kits)) {
         if ($chkSkip.Checked -and (Test-KitConverted $kit)) { continue }

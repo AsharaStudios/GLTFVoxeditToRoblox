@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/logo.png" width="96" alt="Logo de VoxToRoblox"></p>
+<p align="center"><img src="app/logo.png" width="96" alt="Logo de VoxToRoblox"></p>
 
 <h1 align="center">VoxToRoblox</h1>
 
 <p align="center">
-Convierte modelos animados de <b>VoxEdit</b> (glTF / GLB) en FBX listos para <b>Roblox</b>: un rig de una sola malla con todas sus animaciones, un atlas de textura nítido, mapas PBR y kits de equipables.<br>
-Una app simple para Windows que usa Blender.
+Lleva tus personajes y equipables animados de <b>VoxEdit</b> a <b>Roblox</b> (y a Blender) con todas sus animaciones y colores.<br>
+Dos apps sencillas para Windows — sin programar.
 </p>
 
 <p align="center"><a href="README.md">English</a> · <b>Español</b></p>
@@ -18,158 +18,58 @@ Una app simple para Windows que usa Blender.
 
 ---
 
-## Requisitos
+## Qué necesitas
 
-- **Windows 10 u 11.** La ventana usa PowerShell y Windows Forms, que ya vienen con Windows.
-- **[Blender](https://www.blender.org/download/) 4.4 o superior** (gratis). Probado con Blender 5.2.
-  Se encuentra solo en `C:\Program Files\Blender Foundation\` (usa la versión más nueva).
-  Si lo instalaste en otra carpeta, pon su ruta en la primera línea de `VoxToRoblox.ps1`.
-- **Nada más para convertir:** Blender ya trae su propio Python, numpy y los complementos de glTF/FBX. **No** hace falta instalar Python.
-- **VoxEdit**, para exportar tus modelos como `.gltf` / `.glb` (con animaciones).
-- **Roblox Studio**, para importar el resultado.
-- Solo para `PBRTuner.lua` en juegos publicados: activar las APIs de Mesh/Image (*Configuración del juego → Seguridad*) y tener la cuenta dueña verificada.
+- **Windows 10 u 11**
+- **[Blender](https://www.blender.org/download/)** 4.4 o superior (gratis) — solo instálalo, las apps lo encuentran solas
+- **VoxEdit** y **Roblox Studio**
 
-## Uso rápido
+## Opción A — directo desde tus proyectos de VoxEdit
 
-1. Pon los `.gltf` / `.glb` (con sus `.bin` y texturas, o en subcarpetas) dentro de `Input\`.
-2. Doble clic en **`Start VoxEdit to Roblox.exe`**: se abre una ventana con la lista de archivos de `Input\`.
-3. Elige las opciones si quieres (altura en studs, tamaño de textura, mapas PBR, píxeles nítidos, saltar los ya convertidos, abrir Output al terminar).
-4. Marca **Equipable** en los equipables de VoxEdit (casco, pecho, brazos, piernas, arma, escudo…): esos archivos se convierten con el [algoritmo de kit](#kits-cuerpo--equipo--armas). Los que tienen en el nombre *Helmet, Shield, Weapon, Legs, Arms* o *Chest* ya vienen marcados; puedes cambiarlo.
-5. Presiona **Convertir**. Cada archivo muestra una miniatura, su barra de progreso y su estado; la barra de abajo es el total.
-   El resultado queda en `Output\<Nombre>\`. Si un archivo falla, **Ver log** muestra el detalle (`log.txt`).
+1. Copia las carpetas de tus proyectos de VoxEdit en **`Projects`**.
+2. Abre **`Start VoxEdit Project to GLTF.exe`** (logo ámbar).
+3. Desmarca en **Exportar a GLTF** lo que no quieras y presiona **Convertir**.
+4. Presiona **GLTF → Roblox** para pasar al siguiente paso (Opción B, desde el paso 2).
 
-La ventana también tiene botones para abrir las carpetas **Input** y **Output**, **Actualizar** la lista, **Cancelar** una conversión y **Limpiar Output** (manda todo lo de `Output` a la Papelera de reciclaje, preguntando antes).
-**Idioma** (arriba a la derecha): inglés o español. Abre en el idioma de tu Windows y recuerda lo que elijas.
+## Opción B — desde archivos GLTF exportados por VoxEdit
 
-## Qué se genera
+1. Pon tus archivos `.gltf` / `.glb` en **`Input`**.
+2. Abre **`Start VoxEdit to Roblox.exe`** (logo azul).
+3. **Exportar**: desmarca lo que no quieras convertir.
+4. **Equipable**: marca las piezas de equipo (casco, pecho, brazos, piernas, arma, escudo…). Las piezas marcadas de la misma carpeta forman **un kit** que comparte el cuerpo.
+5. Presiona **Convertir**. Tus archivos quedan en **`Output`**.
 
-Por modelo, en `Output\<Nombre>\`:
+## Importar en Roblox
 
-| Archivo | Qué es |
+1. En Roblox Studio: **Import 3D** → elige `Output\<Nombre>\<Nombre>_Roblox.fbx`.
+2. Revisa que aparezcan las animaciones y presiona **Import**: el personaje queda en la escena y cada animación se sube a tu inventario.
+3. Para editar el personaje en Blender, abre `<Nombre>_Rig.blend` de la misma carpeta.
+
+## Qué hay en la carpeta
+
+| | |
 |---|---|
-| `<Nombre>_Roblox.fbx` | Personaje + **todas** las animaciones en un solo archivo — el que se importa en Roblox |
-| `<Nombre>_Rig.fbx` | Personaje con esqueleto, sin animaciones |
-| `Animations\<Nombre>_*.fbx` | Una animación por archivo (*Animation Editor → Import from FBX Animation*) |
-| `<Nombre>_Atlas.png` | Textura única (color) |
-| `<Nombre>_Normal.png` | Relieve (normal map, formato OpenGL que usa Roblox) |
-| `<Nombre>_Roughness.png` | Rugosidad (negro = brillante, blanco = mate) |
-| `<Nombre>_Metalness.png` | Metalicidad (negro = no metal) |
-| `<Nombre>_Emissive.png` | Máscara de brillo, blanco = brilla (solo si el modelo tiene vóxeles emisivos) |
-| `<Nombre>_Rig.blend` | Rig con todas las animaciones, listo para editar en Blender |
-| `<Nombre>_report.txt` | Triángulos, huesos y error de cada animación frente al original |
+| `Start VoxEdit Project to GLTF.exe` | Proyectos de VoxEdit → GLTF |
+| `Start VoxEdit to Roblox.exe` | GLTF → Roblox (y Blender) |
+| `Projects` | Las carpetas de tus proyectos de VoxEdit |
+| `Input` | Los GLTF para convertir |
+| `Output` | Los resultados para Roblox y Blender |
+| `app` | Las apps en sí — no hace falta tocarla |
 
-## Importar en Roblox de una vez
+Las carpetas `Projects`, `Input` y `Output` se crean la primera vez que abres las apps.
 
-1. En Studio: **Import 3D** → elige `<Nombre>_Roblox.fbx` (unidad *Stud*).
-2. En el importador, revisa que aparezcan las animaciones en el árbol y dale **Import**. El rig queda en la escena y cada animación se sube a tu inventario.
-3. Para usarlas: *Animation Editor → Import from Roblox*, o copia el ID desde el inventario.
+## Si Windows muestra un aviso
 
-> La animación de T-pose no se incluye porque es idéntica a la pose de reposo.
+Las apps no están firmadas, así que la primera vez Windows puede decir *"Windows protegió su PC"*. Haz clic en **Más información → Ejecutar de todas formas**.
 
-### Material (SurfaceAppearance de la malla)
+## Más información
 
-| Propiedad | Mapa |
-|---|---|
-| `ColorMap` | `_Atlas` |
-| `NormalMap` | `_Normal` |
-| `RoughnessMap` | `_Roughness` |
-| `MetalnessMap` | `_Metalness` |
-| `EmissiveMaskContent` | `_Emissive` (+ `EmissiveStrength` / `EmissiveTint`) |
-| `ResampleMode` | `Pixelated` |
+Desarrolladores y usuarios avanzados: opciones, archivos que se generan, kits, materiales y uso desde consola están en las [notas técnicas](app/TECNICO.md).
 
-Roblox necesita cada mapa en su propio campo (no admite un solo PNG "empaquetado") y reduce cualquier imagen a 1024×1024 al subirla.
+## Agradecimientos
 
-## Kits (cuerpo + equipo + armas)
+A [**vengi**](https://github.com/vengi-voxel/vengi), de [Martin Gerhardy (@mgerhardy)](https://github.com/mgerhardy): sus herramientas de vóxeles de código abierto documentan cómo están hechos los archivos de proyecto de VoxEdit, y eso hizo posible la app *Proyecto VoxEdit → GLTF*.
 
-En la ventana, marca **Equipable** en cada pieza del kit y presiona **Convertir**. Todos los archivos marcados de la misma carpeta se convierten juntos como **un kit**: un solo cuerpo, la misma escala y la posición de cada pieza.
+---
 
-- Archivos sueltos en `Input\`: el kit toma el nombre de la palabra que comparten (`Knight_Helmet`, `Knight_Legs` → **Knight**).
-- Archivos en una subcarpeta (`Input\Pirate\…`): el kit se llama como la carpeta; así puedes convertir varios kits a la vez.
-
-Pon **todas** las piezas del kit juntas; un kit necesita al menos una pieza exportada sobre el avatar de VoxEdit (con el cuerpo).
-Sale en `Output\<Kit>_Kit\`:
-
-| Archivo | Qué es |
-|---|---|
-| `<Kit>_Body.fbx` | Rig rígido: una malla por hueso (Motor6D en Roblox) + `HumanoidRootPart` |
-| `<Set>.fbx` | Uno por set de equipo, una malla por hueso, en la pose de reposo del cuerpo |
-| `<Arma>.fbx` | Armas sueltas: una malla `Handle` |
-| `<Kit>_Animations.json` | Animaciones del cuerpo para Studio |
-| `<Kit>_Offsets.json` | Posición de cada pieza relativa a su hueso |
-| `<Kit>_Kit.blend` | Todo junto para revisar |
-| `<Kit>_report.txt` | Resumen |
-
-## Subir / bajar la intensidad en Roblox (`PBRTuner.lua`)
-
-1. Crea un **LocalScript** en `StarterPlayerScripts` llamado `PBRTuner` y pega `PBRTuner.lua`.
-2. A la MeshPart ponle el tag `PBRTuner` y los atributos que quieras (números):
-   `PBR_Normal 1` · `PBR_Roughness 1` · `PBR_RoughnessAdd 0` · `PBR_Metalness 1` · `PBR_MetalnessAdd 0` · `PBR_Emissive 4`
-3. Dale **Play** y cambia los atributos (vista Cliente): se actualiza al instante. Cuando te guste, pon los mismos valores en modo edición para guardarlos.
-
-## Qué hace
-
-- Convierte las piezas sueltas de VoxEdit en una sola malla con esqueleto.
-- Junta todas las texturas en un atlas nítido (sin suavizado): cada textura de VoxEdit se recorta al área que realmente usan sus UV y los recortes idénticos se comparten, así el atlas es pequeño y cada vóxel recibe más píxeles. El atlas va en un lienzo potencia de 2 para que Roblox no lo reescale (ni lo desenfoque).
-- Opción **Píxeles nítidos** (`--palette`): corta cada cara en rectángulos de un solo color para que el pixel art se vea nítido a cualquier distancia (Roblox siempre suaviza las texturas de las mallas). Cuesta unas 4 veces más triángulos, por eso viene apagada.
-- Escala a 5.5 studs, pies en el origen, mirando al frente de Roblox. Reposo = la T-pose del modelo (detecta "T POSE", "T", "TPose"…).
-- Fusiona huesos que casi no se mueven (por defecto, si el error es menor a medio vóxel).
-- Reduce keyframes redundantes al exportar.
-- El normal map se calcula del color: lo oscuro queda hundido y lo claro en relieve, con un bisel donde cambian los colores.
-- Es un rig propio, no R15.
-
-## Desde consola
-
-Conversor:
-
-```bat
-"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python voxedit_to_roblox.py -- ARCHIVOS [opciones]
-```
-
-Kit:
-
-```bat
-"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python voxedit_kit_to_roblox.py -- GLTFS... [--name Kit] [--out CARPETA]
-```
-
-Desde consola el resultado queda en `Roblox\<Nombre>\` junto al glTF (o en `--out`).
-
-| Opción | Por defecto | Qué hace |
-|---|---|---|
-| `--height` | `5.5` | Altura final en studs |
-| `--tex` | `1024` | Tamaño de la textura final |
-| `--rest "Nombre"` | T-pose | Animación usada como pose de reposo |
-| `--max-error` | `0.5` | Error permitido al fusionar huesos (en vóxeles); más alto = menos huesos |
-| `--max-bones` | `0` | Límite duro de huesos (0 = sin límite). Forzarlo deforma manos/pelo |
-| `--no-reduce` | | No fusionar huesos |
-| `--simplify` | `1.0` | Reducción de keyframes (0 = un key por frame) |
-| `--anim-skeleton-only` | | FBX de animación sin malla (más livianos; la pose de reposo puede leerse mal) |
-| `--no-rotate` | | No girar 180° (si un modelo queda de espaldas) |
-| `--no-blend` | | No guardar el `.blend` |
-| `--no-combined` | | No generar `<Nombre>_Roblox.fbx` |
-| `--out CARPETA` | | Carpeta de salida distinta |
-| `--maps-only` | | Solo atlas + mapas PBR, con los **mismos UV** (no toca los FBX, el `.blend` ni las animaciones) |
-| `--no-pbr` | | No generar los mapas PBR |
-| `--palette` | | Rectángulos de color plano en vez de caras con textura: pixel art nítido, ~4x triángulos (avisa si pasa de los 20 000 por MeshPart de Roblox) |
-| `--emis-relative` | | Máscara emisiva con la intensidad de VoxEdit (por defecto: todo lo que brilla en blanco puro; el brillo se ajusta con `EmissiveStrength`) |
-| `--normal-strength` | `1.0` | Fuerza del relieve del normal map |
-| `--bevel` | `0.25` | Ancho del bisel entre vóxeles de distinto color (fracción del vóxel) |
-| `--voxel-bevel` | `0` | Bisel en **todos** los bordes de vóxel, aspecto "bloque" (prueba `0.4`) |
-| `--roughness` | `0.6` | Rugosidad base si el modelo no trae la suya (VoxEdit casi nunca la trae) |
-| `--rough-var` | `0.35` | Variación de rugosidad: lo oscuro más mate, lo claro más pulido |
-| `--metal` | `0` | Metalicidad base si el modelo no trae la suya |
-| `--log-file ARCHIVO` | | Escribe el log completo en un archivo en vez de la consola |
-| `--progress-file`, `--thumb-list` | | Uso interno de la ventana |
-
-## El lanzador
-
-`Start VoxEdit to Roblox.exe` es solo un lanzador pequeño con el logo: abre `VoxToRoblox.ps1`, que debe quedar en la misma carpeta. Su código es [`Launcher.cs`](Launcher.cs); para recompilarlo (por ejemplo si cambias `VoxToRoblox.ico`):
-
-```bat
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /nologo /target:winexe /win32icon:VoxToRoblox.ico /out:"Start VoxEdit to Roblox.exe" Launcher.cs
-```
-
-No está firmado, así que al descargarlo Windows puede avisar que es de un editor desconocido: **Más información → Ejecutar de todas formas**, o clic derecho en `VoxToRoblox.ps1` → **Ejecutar con PowerShell**.
-
-## Licencia
-
-[MIT](LICENSE) © Ashara Studios — hecho con amor por [Ashara Studios](https://asharastudios.com).
+[Licencia MIT](LICENSE) © Ashara Studios — hecho con amor por [Ashara Studios](https://asharastudios.com). No está afiliado a The Sandbox ni a VoxEdit.
